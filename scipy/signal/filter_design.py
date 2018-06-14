@@ -28,7 +28,7 @@ __all__ = ['findfreqs', 'freqs', 'freqz', 'tf2zpk', 'zpk2tf', 'normalize',
            'BadCoefficients', 'freqs_zpk', 'freqz_zpk',
            'tf2sos', 'sos2tf', 'zpk2sos', 'sos2zpk', 'group_delay',
            'sosfreqz', 'iirnotch', 'iirpeak', 'bilinear_zpk',
-           'lp2lp_zpk', 'lp2hp_zpk', 'lp2bp_zpk', 'lp2bs_zpk']
+           'lp2lp_zpk', 'lp2hp_zpk', 'lp2bp_zpk', 'lp2bs_zpk']  # TODO List cascade_filts
 
 
 class BadCoefficients(UserWarning):
@@ -4220,6 +4220,86 @@ def _design_notch_peak_filter(w0, Q, ftype):
     a = np.array([1.0, -2.0*gain*np.cos(w0), (2.0*gain-1.0)])
 
     return b, a
+
+def cascade_filters(*args, **kwargs):
+    """
+    Parameters
+    -------
+    *filters : arguments
+        An arbitrary number of filters to be cascaded. The filters have to be given as tuples of
+        array_likes containing the coefficients of the numerator and denominator polynomials.
+        coefficients: (b, a)
+        e.g. cascade three filters: cascade_filters((b0, a0), (b1, a1), (b2, a2))
+
+
+    Returns
+    -------
+    b, a : ndarray, ndarray
+        Numerator (`b`) and denominator (`a`) polynomials
+        of the filter obtained by cascading.
+        Only returned if ``output='ba'`` (default).
+    z, p, k : ndarray, ndarray, float
+        Zeros, poles, and system gain of the filter transfer
+        function obtained by cascading.  Only returned if ``output='zpk'``.
+    sos : ndarray
+        Second-order sections representation of the cascaded filter.
+        Only returned if ``output=='sos'``.
+
+    Examples
+    --------
+    Cascade a low- and a highpass filter to obtain a bandpass filter
+
+    >>> from scipy import signal
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+
+    >>> wc_hp = 0.25  # Normalized Frequency for the Lowpass
+    >>> wc_lp = 0.75 # Normalized Frequency for the Highpass
+    >>> # Design lp and hp filters
+    >>> b_lp, a_lp = signal.butter(4, wc_lp, btype='lowpass')
+    >>> b_hp, a_hp = signal.butter(4, wc_hp, btype='highpass')
+    >>> # Cascade the two filters
+    >>> b_bp, a_bp = signal.cascade_filts((b_lp, a_lp), (b_hp, a_hp))
+    >>> # Frequency response
+    >>> w, h = signal.freqz(b, a)
+    >>> # Plot
+    >>> plt.plot(w, 20*np.log10(abs(h)))
+    >>> plt.title("Frequency Response")
+    >>> plt.xlabel("Normalized Frequency")
+    >>> plt.ylabel("Amplitude (dB)")
+    >>> plt.grid(True)
+    >>> plt.show()
+    """
+    # TODO Description
+    # TODO Parameters
+    # TODO Unit Tests
+    output = kwargs.get('output', 'ba')
+    for arg in args:
+        for k in range(0, 1):
+            if type(arg[k]) is not np.ndarray:
+                raise TypeError('Filters should be given as tuples containing two numpy arrays (b, a)')
+        if len(arg) != 2:
+            raise TypeError('Filters should be given as tuples containing two numpy arrays (b, a)')
+        if arg[1][0] == 0:
+            raise ValueError('denominator coefficent must be nonzero!')
+
+    filt_cascaded_b = np.array([1])
+    filt_cascaded_a = np.array([1])
+
+    for filt in args:
+        filt_cascaded_b = np.convolve(filt_cascaded_b, np.array(filt[0]))
+        filt_cascaded_a = np.convolve(filt_cascaded_a, np.array(filt[1]))
+    filt_cascaded = (filt_cascaded_b, filt_cascaded_a)
+
+    b = filt_cascaded[0]
+    a = filt_cascaded[1]
+
+    if output == 'ba':
+        return b, a
+    elif output == 'zpk':
+        return tf2zpk(b, a)
+    elif output == 'sos':
+        return tf2sos(b, a)
 
 
 filter_dict = {'butter': [buttap, buttord],
