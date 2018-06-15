@@ -4277,11 +4277,9 @@ def cascade_filters(*args, **kwargs):
     for arg in args:
         for k in range(0, 1):
             if type(arg[k]) is not np.ndarray:
-                raise TypeError('Filters should be given as tuples containing two numpy arrays (b, a)')
+                raise TypeError('Filters should be given as tuples containing two array_likes (b, a)')
         if len(arg) != 2:
-            raise TypeError('Filters should be given as tuples containing two numpy arrays (b, a)')
-        if arg[1][0] == 0:
-            raise ValueError('denominator coefficent must be nonzero!')
+            raise TypeError('Filters should be given as tuples containing two array_likes (b, a)')
 
     filt_cascaded_b = np.array([1])
     filt_cascaded_a = np.array([1])
